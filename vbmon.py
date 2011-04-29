@@ -333,16 +333,16 @@ def GetMet(Machine, ShowValue):
                                 v = s.split()
                                 e = str(v[2])
                                 if host_disk.find(e) > -1 :
-                                        tvir = vir + int(v[5])*512
-                                        tviw = viw + int(v[9])*512
+                                        tvir = tvir + int(v[5])*512
+                                        tviw = tviw + int(v[9])*512
                    if PrevValue[0][0] >= 0:
                        vir = (tvir - PrevValue[0][0]) / UpdateInterval
                         viw = (tviw - PrevValue[0][1]) / UpdateInterval
                 else:
-                    viw = 0
                         vir = 0
+                    viw = 0
                    PrevValue[0][0] = tvir
-                PrevValue[0][0] = tviw                
+                PrevValue[0][1] = tviw     
         else:
                         (vir,viw) = ReadCounters()
                         for t in table.table:
