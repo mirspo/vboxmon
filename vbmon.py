@@ -28,7 +28,7 @@ if sys.platform == 'win32' :
         win = True
         import win32com.client
         import win32api
-        host_eth = '\DEVICE\TCPIP_{44D06796-5D02-4E15-A011-91070F6FDDD0}' #getmac
+        host_eth = '\DEVICE\TCPIP_{44D06796-5D02-4E15-A011-91070F6FDDD0},\Device\Tcpip_{99339252-11E7-4F88-AB53-262C8B4407EF}' #getmac
         host_disk = ''
 else:
         win = False
@@ -36,8 +36,10 @@ else:
         host_eth = 'eth0'       #ifconfig
         host_disk = 'sda,sdb,sr0' #ls /dev/hd?|sd?
 
-UpdateInterval = 3
+UpdateInterval = 15
 GraphTime = 60 * 1
+global PrevValue
+PrevValue = []
 
 colors = ['#F0F000','#FF0000','#00FF00','#0000FF','#F000F0','#383700','#A820ED','#13E0E0','#0C7474','#689430']
 lines = ['','','','','','','','','','']
@@ -57,7 +59,7 @@ LONGLONG = ctypes.c_longlong
 HCOUNTER = HQUERY = HANDLE
 
 # error code
-Error_Success = 0
+#Error_Success = 0
 
 # macro
 sleep = ctypes.windll.kernel32.Sleep
@@ -285,8 +287,8 @@ def GetMet(Machine, ShowValue):
                 " DS:Idle:GAUGE:20:0:1000" \
                 " DS:MEMUsed:GAUGE:20:0:U" \
                 " DS:MEMFree:GAUGE:20:0:U" \
-                " DS:ReadBytes:COUNTER:20:0:U" \
-                " DS:WrittenBytes:COUNTER:20:0:U" \
+                " DS:ReadBytes:GAUGE:20:0:U" \
+                " DS:WrittenBytes:GAUGE:20:0:U" \
                 " DS:ReceiveBytes:COUNTER:20:0:U" \
                 " DS:TransmitBytes:COUNTER:20:0:U" \
                 " RRA:AVERAGE:0.5:1:1440 " \
@@ -306,16 +308,28 @@ def GetMet(Machine, ShowValue):
         vi = 0
         
         if not HasHost :
-                vir = GetValEx(Machine,'/Devices/*/ReadBytes')
-                viw = GetValEx(Machine,'/Devices/*/WrittenBytes')
+                tvir = GetValEx(Machine,'/Devices/*/ReadBytes')
+                tviw = GetValEx(Machine,'/Devices/*/WrittenBytes')
                 vnr = GetValEx(Machine,'/Devices/*/ReceiveBytes')
                 vnt = GetValEx(Machine,'/Devices/*/TransmitBytes')
+                i = MachineNameList.index(Machine)
+                if PrevValue[i][0] >= 0:
+                        vir = (tvir - PrevValue[i][0]) / UpdateInterval
+                        viw = (tviw - PrevValue[i][1]) / UpdateInterval
+                else:
+                        vir = 0
+                        viw = 0
+                PrevValue[i][0] = tvir
+                PrevValue[i][1] = tviw
+                        
         else :
                 vnr = 0
                 vnt = 0 
                 vir = 0 
                 viw = 0
                 if not win :
+                        tvnr = 0
+                        tvnt = 0
                         f = open("/proc/net/dev")
                         all_lines = f.readlines()
                         f.close()               
@@ -323,8 +337,16 @@ def GetMet(Machine, ShowValue):
                                 v = s.split()
                                 e = str(v[0][:-1])
                                 if host_eth.find(e) > -1 :
-                                        vnr = vnr + int(v[1])
-                                        vnt = vnt + int(v[9])
+                                        tvnr = tvnr + int(v[1])
+                                        tvnt = tvnt + int(v[9])
+                        if PrevValue[i][0] < 0:
+                                vnr = 0
+                                vnt = 0
+                        else:
+                                vnr = (tvnr - PrevValue[0][0]) / UpdateInterval
+                                vnt = (tvnt - PrevValue[0][1]) / UpdateInterval
+                        PrevValue[0][0] = tvnr
+                        PrevValue[0][0] = tvnt
                         f = open("/proc/diskstats")
                         all_lines = f.readlines()
                         f.close()               
@@ -337,17 +359,11 @@ def GetMet(Machine, ShowValue):
                                         #print v
                 else:
                         (vir,viw) = ReadCounters()
-                        PREV_IR = PREV_IR + vir * UpdateInterval
-                        PREV_IW = PREV_IW + viw * UpdateInterval
-                        vir = PREV_IR
-                        viw = PREV_IW
-                        #print "IO r:", vir, 'w:', viw
                         for t in table.table:
                                 res = windll.iphlpapi.GetIfTable(byref(table), byref(size), 0)
                                 if host_eth.find(t.wszName):
                                         vnr = vnr + t.dwInOctets
                                         vnt = vnt + t.dwOutOctets
-                        #print vnt,vnr,vir,viw
 
         s = rrdtool + " update %s N:%d:%d:%d:%d:%d:%d:%d:%d:%d"%(rrdname,vk,vu,vi,vram,vramfree,vir,viw,vnr,vnt)
         os.system(s)
@@ -362,12 +378,13 @@ def Graph(filename, Machines,times,metric,ShowValue, BeginN):
         for m in Machines[BeginN:] :
                 cn = metric + str(n)
                 s = s + " DEF:" + metric + str(n) + "=" + rrdpath.replace(':','\:') + m.replace(' ','_') + '.rrd' + ':' + metric + ':AVERAGE LINE1:' + cn + colors[n-1] + ':"' + m + '"'
-#               s = s + " AREA:"+ cn + colors[n-1]+":LAST
                 s = s + " GPRINT:"+ cn +":LAST:'Last%8.2lf%s' " 
                 s = s + " GPRINT:"+ cn +":AVERAGE:'AVG%8.2lf%s' GPRINT:"+cn+":MAX:'Max%8.2lf%s' GPRINT:"+cn+":MIN:'MIN%8.2lf%s' "
                 n = n + 1
         if not win:
                 s = s + " > /dev/null"
+        else:
+                s = s + " > nul"
         os.system(s)
         if ShowValue:
                 print s
@@ -419,10 +436,13 @@ else :
         perf = vboxManager.getPerfCollector(virtualBox)
         session = vboxManager.mgr.getSessionObject(vboxManager.vbox)
 
+
 while 1:
         if Debug:
                 print time.time()
         MachineNameList = UpdateList()
+        while len(PrevValue) < len(MachineNameList):
+                PrevValue.append([-1,-1])
         if not OnlyGraph :
                 if win :
                         perf.SetupMetrics(None,None,UpdateInterval,1)
@@ -446,4 +466,3 @@ while 1:
                 Graph(rrdpath + 'test_ReceiveBytes.png',MachineNameList,60*GraphTime,'ReceiveBytes',Debug,0)
         if OnlyGraph :
                 break
-
