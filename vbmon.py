@@ -1,18 +1,5 @@
 #!/usr/bin/python
 
-#histo
-#catch add/delete vm list
-#add RAM/Free counter
-#add linux host net and io counter
-#add exmach list for exclude vms
-
-#todo
-# win io and net counter 
-# max,min,avg show value counter
-# print values to console
-# modify RRA to average 15m,1h,1d
-
-
 version = 0.2
 
 import time,sys,os
@@ -30,23 +17,29 @@ if sys.platform == 'win32' :
         import win32api
         host_eth = '\DEVICE\TCPIP_{44D06796-5D02-4E15-A011-91070F6FDDD0},\Device\Tcpip_{99339252-11E7-4F88-AB53-262C8B4407EF}' #getmac
         host_disk = ''
+        rrdpath = "e:\\test\\"
+         rrdtool = 'C:\\Tools\\RRDtool\\rrdtool.exe'
 else:
         win = False
         from vboxapi import VirtualBoxManager
         host_eth = 'eth0'       #ifconfig
         host_disk = 'sda,sdb,sr0' #ls /dev/hd?|sd?
-
+        rrdpath = '/home/ilya/test/2/rrd/'
+        rrdtool = '/usr/bin/rrdtool'
 UpdateInterval = 15
 GraphTime = 60 * 1
+
+
 global PrevValue
 PrevValue = []
 
 colors = ['#F0F000','#FF0000','#00FF00','#0000FF','#F000F0','#383700','#A820ED','#13E0E0','#0C7474','#689430']
-lines = ['','','','','','','','','','']
-maxlines = len(lines)
 exmach = 'test,uroute,xp sata,xpn1,centos'
 PicWidth = 500
 PicHeight = 400
+
+lines = ['','','','','','','','','','']
+maxlines = len(lines)
 Debug = False
 MakeGraph = True
 OnlyGraph = False
@@ -144,7 +137,6 @@ MAXLEN_IFDESCR = 256
 MAXLEN_PHYSADDR = 8
 MIB_IF_TYPE_LOOPBACK = 24
 class MIB_IFROW(Structure):
-#    _fields_ = [('wszName', c_wchar(MAX_INTERFACE_NAME_LEN)),
     _fields_ = [('wszName', c_wchar * MAX_INTERFACE_NAME_LEN),
                 ('dwIndex', DWORD),
                 ('dwType', DWORD),
@@ -215,12 +207,6 @@ def ReadCounters():
     return v3,v4
     
 
-if win :
-        rrdpath = "e:\\test\\"
-        rrdtool = 'C:\\Tools\\RRDtool\\rrdtool.exe'
-else :
-        rrdpath = '/home/ilya/test/2/rrd/'
-        rrdtool = '/usr/bin/rrdtool'
 
 def GetVal(met_obj, Metric):
         if win :
