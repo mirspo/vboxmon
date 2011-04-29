@@ -6,19 +6,18 @@ import time,sys,os
 import ctypes
 from ctypes import byref
 from ctypes import Structure, Union
-from ctypes.wintypes import *
-import win32api
-from ctypes import *
-from _winreg import *
 
 if sys.platform == 'win32' :
         win = True
         import win32com.client
         import win32api
+    from ctypes.wintypes import *
+    from ctypes import *
+    from _winreg import *
         host_eth = '\DEVICE\TCPIP_{44D06796-5D02-4E15-A011-91070F6FDDD0},\Device\Tcpip_{99339252-11E7-4F88-AB53-262C8B4407EF}' #getmac
         host_disk = ''
         rrdpath = "e:\\test\\"
-         rrdtool = 'C:\\Tools\\RRDtool\\rrdtool.exe'
+        rrdtool = 'C:\\Tools\\RRDtool\\rrdtool.exe'
 else:
         win = False
         from vboxapi import VirtualBoxManager
@@ -26,15 +25,16 @@ else:
         host_disk = 'sda,sdb,sr0' #ls /dev/hd?|sd?
         rrdpath = '/home/ilya/test/2/rrd/'
         rrdtool = '/usr/bin/rrdtool'
-UpdateInterval = 15
-GraphTime = 60 * 1
+
+UpdateInterval = 3
+GraphTime = 1 * 30
 
 
 global PrevValue
 PrevValue = []
 
 colors = ['#F0F000','#FF0000','#00FF00','#0000FF','#F000F0','#383700','#A820ED','#13E0E0','#0C7474','#689430']
-exmach = 'test,uroute,xp sata,xpn1,centos'
+exmach = 'test,uroute,centos,xpn1,xp sata'
 PicWidth = 500
 PicHeight = 400
 
@@ -44,39 +44,40 @@ Debug = False
 MakeGraph = True
 OnlyGraph = False
 
-# other wintype definition
-LPVOID = ctypes.c_void_p
-LPCVOID = LPVOID
-DWORD_PTR = DWORD
-LONGLONG = ctypes.c_longlong
-HCOUNTER = HQUERY = HANDLE
+if win:
+    # other wintype definition
+    LPVOID = ctypes.c_void_p
+    LPCVOID = LPVOID
+    DWORD_PTR = DWORD
+    LONGLONG = ctypes.c_longlong
+    HCOUNTER = HQUERY = HANDLE
 
-# error code
-#Error_Success = 0
+    # error code
+    #Error_Success = 0
 
-# macro
-sleep = ctypes.windll.kernel32.Sleep
-pdh = ctypes.windll.pdh
+    # macro
+    sleep = ctypes.windll.kernel32.Sleep
+    pdh = ctypes.windll.pdh
 
-# structure definition
-class PDH_COUNTER_PATH_ELEMENTS(Structure): 
-    _fields_ = [('szMachineName', LPVOID),
+    # structure definition
+    class PDH_COUNTER_PATH_ELEMENTS(Structure): 
+        _fields_ = [('szMachineName', LPVOID),
                 ('szObjectName', LPVOID),
                 ('szInstanceName', LPVOID),
                 ('szParentInstance', LPVOID),
                 ('dwInstanceIndex', DWORD),
                 ('szCounterName', LPVOID)]
 
-class Sysinfo_Struct(Structure):
-    _fields_ = [('wProcessorArchitecture', WORD),
+    class Sysinfo_Struct(Structure):
+        _fields_ = [('wProcessorArchitecture', WORD),
                 ('wReserved', WORD)]
 
-class Sysinfo_Union(Union):
-    _fields_ = [('dwOemId', DWORD),
+    class Sysinfo_Union(Union):
+        _fields_ = [('dwOemId', DWORD),
                 ('struct', Sysinfo_Struct)]
 
-class System_Info(Structure):
-    _fields_ = [('union', Sysinfo_Union),
+    class System_Info(Structure):
+        _fields_ = [('union', Sysinfo_Union),
                 ('dwPageSize', DWORD),
                 ('lpMinimumApplicationAddress', LPVOID),
                 ('lpMaximumApplicationAddress', LPVOID),
@@ -87,27 +88,27 @@ class System_Info(Structure):
                 ('wProcessorLevel', WORD),
                 ('wProcessorRevision', WORD)]
 
-class PDH_Counter_Union(Union):
-    _fields_ = [('longValue', LONG),
+    class PDH_Counter_Union(Union):
+        _fields_ = [('longValue', LONG),
                 ('doubleValue', ctypes.c_double),
                 ('largeValue', LONGLONG),
                 ('AnsiStringValue', LPCSTR),
                 ('WideStringValue', LPCWSTR)]
 
-class PDH_FMT_COUNTERVALUE(Structure):
-    _fields_ = [('CStatus', DWORD),
+    class PDH_FMT_COUNTERVALUE(Structure):
+        _fields_ = [('CStatus', DWORD),
                 ('union', PDH_Counter_Union),]
 
 
-WCHAR = wchar_t = c_ushort
-BYTE = c_ubyte
-SIZE_T = size_t = c_uint
-ULONG = HANDLE = DWORD = c_ulong
-NO_ERROR = 0
-LPVOID = c_void_p
+    WCHAR = wchar_t = c_ushort
+    BYTE = c_ubyte
+    SIZE_T = size_t = c_uint
+    ULONG = HANDLE = DWORD = c_ulong
+    NO_ERROR = 0
+    LPVOID = c_void_p
 
-def STRING(size):
-    class S(Array):
+    def STRING(size):
+        class S(Array):
         _type_ = c_char
         _length_ = size
 
@@ -117,10 +118,10 @@ def STRING(size):
         def __repr__(self):
             return repr(str(self))
 
-    return S
+        return S
 
-def WSTRING(size):
-    class WS(Array):
+    def WSTRING(size):
+        class WS(Array):
         _type_ = wchar_t
         _length_ = size
 
@@ -130,14 +131,14 @@ def WSTRING(size):
         def __repr__(self):
             return repr(str(self))
 
-    return WS
+        return WS
 
-MAX_INTERFACE_NAME_LEN = 256
-MAXLEN_IFDESCR = 256
-MAXLEN_PHYSADDR = 8
-MIB_IF_TYPE_LOOPBACK = 24
-class MIB_IFROW(Structure):
-    _fields_ = [('wszName', c_wchar * MAX_INTERFACE_NAME_LEN),
+    MAX_INTERFACE_NAME_LEN = 256
+    MAXLEN_IFDESCR = 256
+    MAXLEN_PHYSADDR = 8
+    MIB_IF_TYPE_LOOPBACK = 24
+    class MIB_IFROW(Structure):
+        _fields_ = [('wszName', c_wchar * MAX_INTERFACE_NAME_LEN),
                 ('dwIndex', DWORD),
                 ('dwType', DWORD),
                 ('dwMtu', DWORD),
@@ -162,18 +163,18 @@ class MIB_IFROW(Structure):
                 ('dwDescrLen', DWORD),
                 ('bDesc', STRING(MAXLEN_IFDESCR))]
 
-MAX_INTERFACES = 10
-class MIB_IFTABLE(Structure):
-    _fields_ = [('dwNumEntries', DWORD),
+    MAX_INTERFACES = 10
+    class MIB_IFTABLE(Structure):
+        _fields_ = [('dwNumEntries', DWORD),
                 ('table', MIB_IFROW * MAX_INTERFACES)]
-#global variable
-hQuery = HQUERY()
-hCounter1 = HCOUNTER()
-hCounter2 = HCOUNTER()
-hCounter3 = HCOUNTER()
-hCounter4 = HCOUNTER()
-dwType = DWORD(0)
-value = PDH_FMT_COUNTERVALUE()
+    #global variable
+    hQuery = HQUERY()
+    hCounter1 = HCOUNTER()
+    hCounter2 = HCOUNTER()
+    hCounter3 = HCOUNTER()
+    hCounter4 = HCOUNTER()
+    dwType = DWORD(0)
+    value = PDH_FMT_COUNTERVALUE()
 
 #function
 def GetCounterName(NumF,NumL):
@@ -206,7 +207,6 @@ def ReadCounters():
     v4 = value.union.longValue
     return v3,v4
     
-
 
 def GetVal(met_obj, Metric):
         if win :
@@ -314,8 +314,6 @@ def GetMet(Machine, ShowValue):
                 vir = 0 
                 viw = 0
                 if not win :
-                        tvnr = 0
-                        tvnt = 0
                         f = open("/proc/net/dev")
                         all_lines = f.readlines()
                         f.close()               
@@ -323,27 +321,29 @@ def GetMet(Machine, ShowValue):
                                 v = s.split()
                                 e = str(v[0][:-1])
                                 if host_eth.find(e) > -1 :
-                                        tvnr = tvnr + int(v[1])
-                                        tvnt = tvnt + int(v[9])
-                        if PrevValue[i][0] < 0:
-                                vnr = 0
-                                vnt = 0
-                        else:
-                                vnr = (tvnr - PrevValue[0][0]) / UpdateInterval
-                                vnt = (tvnt - PrevValue[0][1]) / UpdateInterval
-                        PrevValue[0][0] = tvnr
-                        PrevValue[0][0] = tvnt
+                                        vnr = vnr + int(v[1])
+                                        vnt = vnt + int(v[9])
+
                         f = open("/proc/diskstats")
                         all_lines = f.readlines()
                         f.close()               
+                        tvir = 0
+                        tviw = 0
                         for s in all_lines:
                                 v = s.split()
                                 e = str(v[2])
                                 if host_disk.find(e) > -1 :
-                                        vir = vir + int(v[5])*512
-                                        viw = viw + int(v[9])*512
-                                        #print v
-                else:
+                                        tvir = vir + int(v[5])*512
+                                        tviw = viw + int(v[9])*512
+                        if PrevValue[0][0] >= 0:
+                                vvir = (tvir - PrevValue[0][0]) / UpdateInterval
+                                viw = (tviw - PrevValue[0][1]) / UpdateInterval
+                        else:
+                                viw = 0
+                                vir = 0
+                        PrevValue[0][0] = tvir
+                        PrevValue[0][0] = tviw                
+        else:
                         (vir,viw) = ReadCounters()
                         for t in table.table:
                                 res = windll.iphlpapi.GetIfTable(byref(table), byref(size), 0)
@@ -452,3 +452,4 @@ while 1:
                 Graph(rrdpath + 'test_ReceiveBytes.png',MachineNameList,60*GraphTime,'ReceiveBytes',Debug,0)
         if OnlyGraph :
                 break
+
