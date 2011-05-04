@@ -11,9 +11,9 @@ if sys.platform == 'win32' :
         win = True
         import win32com.client
         import win32api
-    from ctypes.wintypes import *
-    from ctypes import *
-    from _winreg import *
+        from ctypes.wintypes import *
+        from ctypes import *
+        from _winreg import *
         host_eth = '\DEVICE\TCPIP_{44D06796-5D02-4E15-A011-91070F6FDDD0},\Device\Tcpip_{99339252-11E7-4F88-AB53-262C8B4407EF}' #getmac
         host_disk = ''
         rrdpath = "e:\\test\\"
@@ -60,7 +60,7 @@ if win:
     pdh = ctypes.windll.pdh
 
     # structure definition
-    class PDH_COUNTER_PATH_ELEMENTS(Structure): 
+    class PDH_COUNTER_PATH_ELEMENTS(Structure):
         _fields_ = [('szMachineName', LPVOID),
                 ('szObjectName', LPVOID),
                 ('szInstanceName', LPVOID),
@@ -109,8 +109,8 @@ if win:
 
     def STRING(size):
         class S(Array):
-        _type_ = c_char
-        _length_ = size
+                _type_ = c_char
+                _length_ = size
 
         def __str__(self):
             return "".join(self).split("\0")[0]
@@ -122,8 +122,8 @@ if win:
 
     def WSTRING(size):
         class WS(Array):
-        _type_ = wchar_t
-        _length_ = size
+                _type_ = wchar_t
+                _length_ = size
 
         def __str__(self):
             return "".join(self).split("\0")[0]
@@ -193,7 +193,7 @@ def GetCounterName(NumF,NumL):
 
 def InitCounters():
     pdh.PdhOpenQueryW(None, 0, byref(hQuery))
-    pdh.PdhAddCounterW(hQuery,GetCounterName(234,220),0,byref(hCounter3)) #read 
+    pdh.PdhAddCounterW(hQuery,GetCounterName(234,220),0,byref(hCounter3)) #read
     pdh.PdhAddCounterW(hQuery,GetCounterName(234,222),0,byref(hCounter4)) #write
 
 def DoneCounters():
@@ -214,7 +214,7 @@ def GetVal(met_obj, Metric):
                 try:
                         val = float(values[0]) / scales[0]
                 except:  
-                        val = 0 
+                        val = 0
         else :
                 met = perf.query([Metric],[met_obj])
                 if len(met) == 0 or len(met[0]['values']) == 0 :
@@ -310,8 +310,8 @@ def GetMet(Machine, ShowValue):
                         
         else :
                 vnr = 0
-                vnt = 0 
-                vir = 0 
+                vnt = 0
+                vir = 0
                 viw = 0
                 if not win :
                         f = open("/proc/net/dev")
@@ -335,15 +335,15 @@ def GetMet(Machine, ShowValue):
                                 if host_disk.find(e) > -1 :
                                         tvir = tvir + int(v[5])*512
                                         tviw = tviw + int(v[9])*512
-                   if PrevValue[0][0] >= 0:
-                       vir = (tvir - PrevValue[0][0]) / UpdateInterval
-                        viw = (tviw - PrevValue[0][1]) / UpdateInterval
+                        if PrevValue[0][0] >= 0 :
+                                vir = (tvir - PrevValue[0][0]) / UpdateInterval
+                                viw = (tviw - PrevValue[0][1]) / UpdateInterval
+                        else:
+                                vir = 0
+                                viw = 0
+                                PrevValue[0][0] = tvir
+                                PrevValue[0][1] = tviw
                 else:
-                        vir = 0
-                    viw = 0
-                   PrevValue[0][0] = tvir
-                PrevValue[0][1] = tviw     
-        else:
                         (vir,viw) = ReadCounters()
                         for t in table.table:
                                 res = windll.iphlpapi.GetIfTable(byref(table), byref(size), 0)
@@ -359,12 +359,12 @@ def GetMet(Machine, ShowValue):
 
 
 def Graph(filename, Machines,times,metric,ShowValue, BeginN):
-        s = rrdtool +' graph --start '+ str(int(time.time()) - times) +' --height ' + str(PicHeight) + ' --width ' + str(PicWidth) + ' -t "' + metric + '" '+ filename 
+        s = rrdtool +' graph --start '+ str(int(time.time()) - times) +' --height ' + str(PicHeight) + ' --width ' + str(PicWidth) + ' -t "' + metric + '" '+ filename
         n = BeginN + 1
         for m in Machines[BeginN:] :
                 cn = metric + str(n)
                 s = s + " DEF:" + metric + str(n) + "=" + rrdpath.replace(':','\:') + m.replace(' ','_') + '.rrd' + ':' + metric + ':AVERAGE LINE1:' + cn + colors[n-1] + ':"' + m + '"'
-                s = s + " GPRINT:"+ cn +":LAST:'Last%8.2lf%s' " 
+                s = s + " GPRINT:"+ cn +":LAST:'Last%8.2lf%s' "
                 s = s + " GPRINT:"+ cn +":AVERAGE:'AVG%8.2lf%s' GPRINT:"+cn+":MAX:'Max%8.2lf%s' GPRINT:"+cn+":MIN:'MIN%8.2lf%s' "
                 n = n + 1
         if not win:
@@ -378,7 +378,7 @@ def Graph(filename, Machines,times,metric,ShowValue, BeginN):
 def UpdateList():
         MachineNameList = ['host']
         if win :
-                mList =  virtualBox.Machines 
+                mList =  virtualBox.Machines
         else :
                 mList = virtualBox.getMachines()
 
@@ -390,7 +390,7 @@ def UpdateList():
                 if len(MachineNameList) >= len(colors) :
                         colors.append(colors[j])
                         j = j + 1
-                        if l > maxlines : 
+                        if l > maxlines :
                                 maxlines = maxlines * 2
                                 l = l + 1
                         lines.append(str(l))
