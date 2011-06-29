@@ -296,8 +296,8 @@ def GetMet(Machine, ShowValue):
         if not HasHost :
                 tvir = GetValEx(Machine,'/Devices/*/ReadBytes')
                 tviw = GetValEx(Machine,'/Devices/*/WrittenBytes')
-                vnr = GetValEx(Machine,'/Devices/*/ReceiveBytes')
-                vnt = GetValEx(Machine,'/Devices/*/TransmitBytes')
+                vnr = GetValEx(Machine,'/Drivers/*/Bytes/Received')
+                vnt = GetValEx(Machine,'/Drivers/*/Bytes/Sent')
                 i = MachineNameList.index(Machine)
                 if PrevValue[i][0] >= 0:
                         vir = (tvir - PrevValue[i][0]) / UpdateInterval
