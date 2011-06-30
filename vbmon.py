@@ -1,6 +1,15 @@
 #!/usr/bin/python
+"""VirtualBox performance monitoring. Version 0.3
 
-version = 0.2
+Usage:
+vbmon.py -h -v -i <sec> -d <path> -s <sec>
+    -p  display parameters only    
+    -h  print help
+    -v  display debug message
+    -i  interval take mesure in seconds
+    -d  path to save rrd and image files
+    -s  timeline length graphics in sceconds
+"""
 
 import time,sys,os
 import ctypes
@@ -41,8 +50,23 @@ PicHeight = 400
 lines = ['','','','','','','','','','']
 maxlines = len(lines)
 Debug = False
-MakeGraph = True
+MakeGraph = False
 OnlyGraph = False
+
+def DisplayParam():
+        print 'vbmon running.'
+        print ' -v Debug mode',Debug
+        print ' -d datapath',rrdpath
+        print ' rrdpath',rrdtool
+        print ' -i update interval',UpdateInterval
+        print ' -s time length',GraphTime
+        print ' -x picture width:',PicWidth
+        print ' -y picture height:',PicHeight
+        print ' -g make picture:',MakeGraph
+        print ' -c make picture only:',OnlyGraph
+        print ' eth:',host_eth
+        print ' disk:',host_disk
+        print ' vn exclude:',exmach
 
 if win:
     # other wintype definition
@@ -398,6 +422,59 @@ def UpdateList():
         return MachineNameList
         
 
+def Usage(ErrorCode):
+        print __doc__
+        sys.exit(ErrorCode)
+
+argv = sys.argv[1:]
+try:
+        i = 0
+        while i < len(argv):
+                if argv[i] == '-y':
+                        PicHeight = int(argv[i+1])
+                        i = i + 2
+                        continue
+                if argv[i] == '-x':
+                        PicWidth = int(argv[i+1])
+                        i = i + 2
+                        continue
+                if argv[i] == '-g':
+                        MakeGraph = True
+                        i = i + 1
+                        continue
+                if argv[i] == '-p':
+                        DisplayParam()
+                        sys.exit(0)
+                        continue
+                if argv[i] == '-h':
+                        i = i + 1
+                        Usage(0)
+                if argv[i] == '-v':
+                        Debug = True
+                        i = i + 1
+                        continue
+                if argv[i] == '-i':
+                        UpdateInterval = int(argv[i+1])
+                        i = i + 2
+                        continue
+                if argv[i] == '-s':
+                        GraphTime = int(argv[i+1])
+                        i = i + 2
+                        continue
+                if argv[i] == '-d':
+                        Path = argv[i+1]
+                        i = i + 2
+                        continue
+                print 'Bad argument:',argv[i]
+                Usage(2)
+        
+except Exception as err:
+        print err
+        Usage(2)
+
+if Debug:
+        DisplayParam()
+
 PREV_IR = 0
 PREV_IW = 0
 
@@ -452,4 +529,3 @@ while 1:
                 Graph(rrdpath + 'test_ReceiveBytes.png',MachineNameList,60*GraphTime,'ReceiveBytes',Debug,0)
         if OnlyGraph :
                 break
-
