@@ -3,12 +3,20 @@
 
 Usage:
 vbmon.py -h -v -i <sec> -d <path> -s <sec>
-    -p  display parameters only    
+    -p  display setting parameters only    
     -h  print help
     -v  display debug message
-    -i  interval take mesure in seconds
+    -i  interval take mesure in seconds, default 10
     -d  path to save rrd and image files
-    -s  timeline length graphics in sceconds
+    -s  timeline length graphics in minutes, default 30
+    -e  exclude VMs, coma separator, default all
+    -x  width picture, default 450
+    -y  heigth picture, default 300
+    -g  make picture, default false
+    -c  only make picture
+    -r  rrdtool path, default vbmon.py directory 
+    -b  hard disk, coma separate, default 'sda,sdb,sr0' (for windows only all)
+    -n  net device,coma separate, default 'eth0' (for windows unknow)
 """
 
 import time,sys,os
@@ -35,7 +43,7 @@ else:
         rrdpath = '/home/ilya/test/2/rrd/'
         rrdtool = '/usr/bin/rrdtool'
 
-UpdateInterval = 3
+UpdateInterval = 10
 GraphTime = 1 * 30
 
 
@@ -43,9 +51,9 @@ global PrevValue
 PrevValue = []
 
 colors = ['#F0F000','#FF0000','#00FF00','#0000FF','#F000F0','#383700','#A820ED','#13E0E0','#0C7474','#689430']
-exmach = 'test,uroute,centos,xpn1,xp sata'
-PicWidth = 500
-PicHeight = 400
+exmach = ''
+PicWidth = 450
+PicHeight = 300
 
 lines = ['','','','','','','','','','']
 maxlines = len(lines)
@@ -57,16 +65,16 @@ def DisplayParam():
         print 'vbmon running.'
         print ' -v Debug mode',Debug
         print ' -d datapath',rrdpath
-        print ' rrdpath',rrdtool
+        print ' -r rrdpath',rrdtool
         print ' -i update interval',UpdateInterval
         print ' -s time length',GraphTime
         print ' -x picture width:',PicWidth
         print ' -y picture height:',PicHeight
         print ' -g make picture:',MakeGraph
         print ' -c make picture only:',OnlyGraph
-        print ' eth:',host_eth
-        print ' disk:',host_disk
-        print ' vn exclude:',exmach
+        print ' -n eth:',host_eth
+        print ' -b disk:',host_disk
+        print ' -e vn exclude:',exmach
 
 if win:
     # other wintype definition
@@ -232,23 +240,26 @@ def ReadCounters():
     return v3,v4
     
 
-def GetVal(met_obj, Metric):
+def GetVal(met_obj, Metric, Mult):
         if win :
                 (values, names, objects, names_out, objects_out, units, scales, sequence_numbers,indices, lengths) = perf.QueryMetricsData([Metric], [met_obj])
                 try:
                         val = float(values[0]) / scales[0]
                 except:  
-                        val = 0
+                        val = None
         else :
                 met = perf.query([Metric],[met_obj])
                 if len(met) == 0 or len(met[0]['values']) == 0 :
-                        val = 0
+                        val = None
                 else:
                         val = int(float(met[0]['values'][0]/met[0]['scale']))
+        if val <> None:
+                val = val * Mult
         return val
 
+                     
 def GetValEx(met_obj, Pattern):
-        vv = 0
+        vv = None
         if win :
                 mach = virtualBox.FindMachine(met_obj)
                 state = mach.State
@@ -270,12 +281,15 @@ def GetValEx(met_obj, Pattern):
                         session.unlockMachine()
                 
                 lines =  xml.split('\n')
-                vv = 0
                 for line in lines:
                         if line.find("<Counter") >= 0 :
                                 v = line.split()[1][3:-1]
-                                vv = vv + int(v)
+                                if vv == None:
+                                        vv = int(v)
+                                else:
+                                        vv = vv + int(v)
         return vv
+
 
 def GetMet(Machine, ShowValue):
         HasHost = Machine == 'host'
@@ -308,27 +322,47 @@ def GetMet(Machine, ShowValue):
                 os.system(s)
                 if ShowValue:
                         print s
-        vk = GetVal(met_obj,'CPU/Load/Kernel')
-        vu = GetVal(met_obj,'CPU/Load/User')
-        vram = GetVal(met_obj,'RAM/Usage/Used') * 1024
+        vk = GetVal(met_obj,'CPU/Load/Kernel',1)
+        vu = GetVal(met_obj,'CPU/Load/User',1)
+        vram = GetVal(met_obj,'RAM/Usage/Used',1024)
         if HasHost:
-                vramfree = GetVal(met_obj,'RAM/Usage/Free') * 1024
+                vramfree = GetVal(met_obj,'RAM/Usage/Free',1024)
         else:
-                vramfree = GetVal(met_obj,'Guest/RAM/Usage/Free') * 1024
+                vramfree = GetVal(met_obj,'Guest/RAM/Usage/Free',1024)
         vi = 0
         
         if not HasHost :
                 tvir = GetValEx(Machine,'/Devices/*/ReadBytes')
                 tviw = GetValEx(Machine,'/Devices/*/WrittenBytes')
-                vnr = GetValEx(Machine,'/Drivers/*/Bytes/Received')
-                vnt = GetValEx(Machine,'/Drivers/*/Bytes/Sent')
+
+		#bugs?
+                vnr = GetValEx(Machine,'/Devices/*/ReceiveBytes')
+		vnr_virtio = GetValEx(Machine,'/Devices/*/Bytes/Receive')
+		if vnr == None:
+			vnr = vnr_virtio
+		else: 
+			if vnr_virtio <> None:
+				vnr = vnr + vnr_virtio
+			
+                vnt = GetValEx(Machine,'/Devices/*/TransmitBytes')
+		vnt_virtio = GetValEx(Machine,'/Devices/*/Bytes/Transmit')
+		if vnt == None:
+			vnt = vnr_virtio
+		else: 
+			if vnt_virtio <> None:
+				vnt = vnt + vnt_virtio
+		#print Machine,vnr,vnt
+
                 i = MachineNameList.index(Machine)
-                if PrevValue[i][0] >= 0:
+
+                if PrevValue[i][0] <> None and tvir <> None:
                         vir = (tvir - PrevValue[i][0]) / UpdateInterval
+                else:
+                        vir = None
+                if PrevValue[i][1] <> None and tviw <> None:
                         viw = (tviw - PrevValue[i][1]) / UpdateInterval
                 else:
-                        vir = 0
-                        viw = 0
+                        viw = None
                 PrevValue[i][0] = tvir
                 PrevValue[i][1] = tviw
                         
@@ -359,14 +393,18 @@ def GetMet(Machine, ShowValue):
                                 if host_disk.find(e) > -1 :
                                         tvir = tvir + int(v[5])*512
                                         tviw = tviw + int(v[9])*512
-                        if PrevValue[0][0] >= 0 :
-                                vir = (tvir - PrevValue[0][0]) / UpdateInterval
-                                viw = (tviw - PrevValue[0][1]) / UpdateInterval
-                        else:
-                                vir = 0
-                                viw = 0
-                                PrevValue[0][0] = tvir
-                                PrevValue[0][1] = tviw
+
+		        if PrevValue[0][0] <> None and tvir <> None:
+		                vir = (tvir - PrevValue[0][0]) / UpdateInterval
+		        else:
+		                vir = None
+		        if PrevValue[0][1] <> None and tviw <> None:
+		                viw = (tviw - PrevValue[0][1]) / UpdateInterval
+		        else:
+		                viw = None
+		        PrevValue[0][0] = tvir
+		        PrevValue[0][1] = tviw
+
                 else:
                         (vir,viw) = ReadCounters()
                         for t in table.table:
@@ -374,8 +412,15 @@ def GetMet(Machine, ShowValue):
                                 if host_eth.find(t.wszName):
                                         vnr = vnr + t.dwInOctets
                                         vnt = vnt + t.dwOutOctets
-
-        s = rrdtool + " update %s N:%d:%d:%d:%d:%d:%d:%d:%d:%d"%(rrdname,vk,vu,vi,vram,vramfree,vir,viw,vnr,vnt)
+        def ValueToStr(Val):
+                if Val == None:
+                        Val = 'U'
+                else:
+                        Val = str(Val)
+                return Val
+                
+#        print Machine,vnr,vnt
+        s = rrdtool + " update %s N:%s:%s:%s:%s:%s:%s:%s:%s:%s"%(rrdname,ValueToStr(vk),ValueToStr(vu),ValueToStr(vi),ValueToStr(vram),ValueToStr(vramfree),ValueToStr(vir),ValueToStr(viw),ValueToStr(vnr),ValueToStr(vnt))
         os.system(s)
         if ShowValue:
                 print s
@@ -428,8 +473,13 @@ def Usage(ErrorCode):
 
 argv = sys.argv[1:]
 try:
+	#bad code. need to do nice :)
         i = 0
         while i < len(argv):
+                if argv[i] == '-c':
+                        OnlyGraph = True
+                        i = i + 1
+                        continue
                 if argv[i] == '-y':
                         PicHeight = int(argv[i+1])
                         i = i + 2
@@ -475,8 +525,8 @@ except Exception as err:
 if Debug:
         DisplayParam()
 
-PREV_IR = 0
-PREV_IW = 0
+PREV_IR = None
+PREV_IW = None
 
 if win :
         virtualBox = win32com.client.Dispatch("VirtualBox.VirtualBox")
