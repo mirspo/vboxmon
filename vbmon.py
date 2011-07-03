@@ -17,6 +17,7 @@ vbmon.py -h -v -i <sec> -d <path> -s <sec>
     -r  rrdtool path, default vbmon.py directory 
     -b  hard disk, coma separate, default 'sda,sdb,sr0' (for windows only all)
     -n  net device,coma separate, default 'eth0' (for windows unknow)
+    -m  not make host graph, default False
 """
 
 import time,sys,os
@@ -60,6 +61,7 @@ maxlines = len(lines)
 Debug = False
 MakeGraph = False
 OnlyGraph = False
+HostGraph = True
 
 def DisplayParam():
         print 'vbmon running.'
@@ -75,6 +77,7 @@ def DisplayParam():
         print ' -n eth:',host_eth
         print ' -b disk:',host_disk
         print ' -e vn exclude:',exmach
+    print ' -m Host graph:',HostGraph
 
 if win:
     # other wintype definition
@@ -332,28 +335,10 @@ def GetMet(Machine, ShowValue):
         vi = 0
         
         if not HasHost :
+                i = MachineNameList.index(Machine)
+
                 tvir = GetValEx(Machine,'/Devices/*/ReadBytes')
                 tviw = GetValEx(Machine,'/Devices/*/WrittenBytes')
-
-		#bugs?
-                vnr = GetValEx(Machine,'/Devices/*/ReceiveBytes')
-		vnr_virtio = GetValEx(Machine,'/Devices/*/Bytes/Receive')
-		if vnr == None:
-			vnr = vnr_virtio
-		else: 
-			if vnr_virtio <> None:
-				vnr = vnr + vnr_virtio
-			
-                vnt = GetValEx(Machine,'/Devices/*/TransmitBytes')
-		vnt_virtio = GetValEx(Machine,'/Devices/*/Bytes/Transmit')
-		if vnt == None:
-			vnt = vnr_virtio
-		else: 
-			if vnt_virtio <> None:
-				vnt = vnt + vnt_virtio
-		#print Machine,vnr,vnt
-
-                i = MachineNameList.index(Machine)
 
                 if PrevValue[i][0] <> None and tvir <> None:
                         vir = (tvir - PrevValue[i][0]) / UpdateInterval
@@ -365,7 +350,25 @@ def GetMet(Machine, ShowValue):
                         viw = None
                 PrevValue[i][0] = tvir
                 PrevValue[i][1] = tviw
-                        
+
+        #bugs in VB?
+                vnr = GetValEx(Machine,'/Devices/*/ReceiveBytes')
+        vnr_virtio = GetValEx(Machine,'/Devices/*/Bytes/Receive')
+        if vnr == None:
+            vnr = vnr_virtio
+        else: 
+            if vnr_virtio <> None:
+                vnr = vnr + vnr_virtio
+            
+                vnt = GetValEx(Machine,'/Devices/*/TransmitBytes')
+        vnt_virtio = GetValEx(Machine,'/Devices/*/Bytes/Transmit')
+        if vnt == None:
+            vnt = vnt_virtio
+        else: 
+            if vnt_virtio <> None:
+                vnt = vnt + vnt_virtio
+
+                     
         else :
                 vnr = 0
                 vnt = 0
@@ -394,16 +397,16 @@ def GetMet(Machine, ShowValue):
                                         tvir = tvir + int(v[5])*512
                                         tviw = tviw + int(v[9])*512
 
-		        if PrevValue[0][0] <> None and tvir <> None:
-		                vir = (tvir - PrevValue[0][0]) / UpdateInterval
-		        else:
-		                vir = None
-		        if PrevValue[0][1] <> None and tviw <> None:
-		                viw = (tviw - PrevValue[0][1]) / UpdateInterval
-		        else:
-		                viw = None
-		        PrevValue[0][0] = tvir
-		        PrevValue[0][1] = tviw
+                if PrevValue[0][0] <> None and tvir <> None:
+                        vir = (tvir - PrevValue[0][0]) / UpdateInterval
+                else:
+                        vir = None
+                if PrevValue[0][1] <> None and tviw <> None:
+                        viw = (tviw - PrevValue[0][1]) / UpdateInterval
+                else:
+                        viw = None
+                PrevValue[0][0] = tvir
+                PrevValue[0][1] = tviw
 
                 else:
                         (vir,viw) = ReadCounters()
@@ -419,7 +422,8 @@ def GetMet(Machine, ShowValue):
                         Val = str(Val)
                 return Val
                 
-#        print Machine,vnr,vnt
+    #print Machine,'rx,tx:',vnr,vnt
+
         s = rrdtool + " update %s N:%s:%s:%s:%s:%s:%s:%s:%s:%s"%(rrdname,ValueToStr(vk),ValueToStr(vu),ValueToStr(vi),ValueToStr(vram),ValueToStr(vramfree),ValueToStr(vir),ValueToStr(viw),ValueToStr(vnr),ValueToStr(vnt))
         os.system(s)
         if ShowValue:
@@ -431,6 +435,8 @@ def Graph(filename, Machines,times,metric,ShowValue, BeginN):
         s = rrdtool +' graph --start '+ str(int(time.time()) - times) +' --height ' + str(PicHeight) + ' --width ' + str(PicWidth) + ' -t "' + metric + '" '+ filename
         n = BeginN + 1
         for m in Machines[BeginN:] :
+        if not HostGraph and m == 'host' :
+            continue
                 cn = metric + str(n)
                 s = s + " DEF:" + metric + str(n) + "=" + rrdpath.replace(':','\:') + m.replace(' ','_') + '.rrd' + ':' + metric + ':AVERAGE LINE1:' + cn + colors[n-1] + ':"' + m + '"'
                 s = s + " GPRINT:"+ cn +":LAST:'Last%8.2lf%s' "
@@ -444,7 +450,7 @@ def Graph(filename, Machines,times,metric,ShowValue, BeginN):
         if ShowValue:
                 print s
 
-def UpdateList():
+def UpdateList(maxlines):
         MachineNameList = ['host']
         if win :
                 mList =  virtualBox.Machines
@@ -473,7 +479,7 @@ def Usage(ErrorCode):
 
 argv = sys.argv[1:]
 try:
-	#bad code. need to do nice :)
+    #bad code. need to do nice :)
         i = 0
         while i < len(argv):
                 if argv[i] == '-c':
@@ -515,7 +521,11 @@ try:
                         Path = argv[i+1]
                         i = i + 2
                         continue
-                print 'Bad argument:',argv[i]
+                if argv[i] == '-m':
+                        HostGraph = False
+                        i = i + 1
+                        continue                
+        print 'Bad argument:',argv[i]
                 Usage(2)
         
 except Exception as err:
@@ -549,11 +559,13 @@ else :
         perf = vboxManager.getPerfCollector(virtualBox)
         session = vboxManager.mgr.getSessionObject(vboxManager.vbox)
 
+#to minutes
+GraphTime = GraphTime * 60
 
 while 1:
         if Debug:
                 print time.time()
-        MachineNameList = UpdateList()
+        MachineNameList = UpdateList(maxlines)
         while len(PrevValue) < len(MachineNameList):
                 PrevValue.append([-1,-1])
         if not OnlyGraph :
@@ -569,13 +581,13 @@ while 1:
                 if win:
                         DoneCounters()
         if MakeGraph or OnlyGraph:
-                Graph(rrdpath + 'test_user.png',MachineNameList,60*GraphTime,'User',Debug,0)
-                Graph(rrdpath + 'test_kernel.png',MachineNameList,60*GraphTime,'Kernel',Debug,0)
-                Graph(rrdpath + 'test_ram.png',MachineNameList,60*GraphTime,'MEMUsed',Debug,0)
-                Graph(rrdpath + 'test_ramfree.png',MachineNameList,60*GraphTime,'MEMFree',Debug,0)
-                Graph(rrdpath + 'test_rio.png',MachineNameList,60*GraphTime,'ReadBytes',Debug,0)
-                Graph(rrdpath + 'test_wio.png',MachineNameList,60*GraphTime,'WrittenBytes',Debug,0)
-                Graph(rrdpath + 'test_TransmitBytes.png',MachineNameList,60*GraphTime,'TransmitBytes',Debug,0)
-                Graph(rrdpath + 'test_ReceiveBytes.png',MachineNameList,60*GraphTime,'ReceiveBytes',Debug,0)
+                Graph(rrdpath + 'test_user.png',MachineNameList,GraphTime,'User',Debug,0)
+                Graph(rrdpath + 'test_kernel.png',MachineNameList,GraphTime,'Kernel',Debug,0)
+                Graph(rrdpath + 'test_ram.png',MachineNameList,GraphTime,'MEMUsed',Debug,0)
+                Graph(rrdpath + 'test_ramfree.png',MachineNameList,GraphTime,'MEMFree',Debug,0)
+                Graph(rrdpath + 'test_rio.png',MachineNameList,GraphTime,'ReadBytes',Debug,0)
+                Graph(rrdpath + 'test_wio.png',MachineNameList,GraphTime,'WrittenBytes',Debug,0)
+                Graph(rrdpath + 'test_TransmitBytes.png',MachineNameList,GraphTime,'TransmitBytes',Debug,0)
+                Graph(rrdpath + 'test_ReceiveBytes.png',MachineNameList,GraphTime,'ReceiveBytes',Debug,0)
         if OnlyGraph :
                 break
