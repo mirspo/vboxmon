@@ -63,6 +63,13 @@ MakeGraph = False
 OnlyGraph = False
 HostGraph = True
 
+def ValueToStr(Val):
+        if Val == None:
+                Val = 'U'
+        else:
+                Val = str(Val)
+        return Val
+
 def DisplayParam():
         print 'vbmon running.'
         print ' -v Debug mode',Debug
@@ -77,7 +84,7 @@ def DisplayParam():
         print ' -n eth:',host_eth
         print ' -b disk:',host_disk
         print ' -e vn exclude:',exmach
-    print ' -m Host graph:',HostGraph
+        print ' -m Host graph:',HostGraph
 
 if win:
     # other wintype definition
@@ -351,24 +358,22 @@ def GetMet(Machine, ShowValue):
                 PrevValue[i][0] = tvir
                 PrevValue[i][1] = tviw
 
-        #bugs in VB?
+                #bugs in VB?
                 vnr = GetValEx(Machine,'/Devices/*/ReceiveBytes')
-        vnr_virtio = GetValEx(Machine,'/Devices/*/Bytes/Receive')
-        if vnr == None:
-            vnr = vnr_virtio
-        else: 
-            if vnr_virtio <> None:
-                vnr = vnr + vnr_virtio
-            
+                vnr_virtio = GetValEx(Machine,'/Devices/*/Bytes/Receive')
+                if vnr == None:
+                        vnr = vnr_virtio
+                else: 
+                        if vnr_virtio <> None:
+                                vnr = vnr + vnr_virtio
+                    
                 vnt = GetValEx(Machine,'/Devices/*/TransmitBytes')
-        vnt_virtio = GetValEx(Machine,'/Devices/*/Bytes/Transmit')
-        if vnt == None:
-            vnt = vnt_virtio
-        else: 
-            if vnt_virtio <> None:
-                vnt = vnt + vnt_virtio
-
-                     
+                vnt_virtio = GetValEx(Machine,'/Devices/*/Bytes/Transmit')
+                if vnt == None:
+                        vnt = vnt_virtio
+                else: 
+                        if vnt_virtio <> None:
+                                vnt = vnt + vnt_virtio
         else :
                 vnr = 0
                 vnt = 0
@@ -397,16 +402,16 @@ def GetMet(Machine, ShowValue):
                                         tvir = tvir + int(v[5])*512
                                         tviw = tviw + int(v[9])*512
 
-                if PrevValue[0][0] <> None and tvir <> None:
-                        vir = (tvir - PrevValue[0][0]) / UpdateInterval
-                else:
-                        vir = None
-                if PrevValue[0][1] <> None and tviw <> None:
-                        viw = (tviw - PrevValue[0][1]) / UpdateInterval
-                else:
-                        viw = None
-                PrevValue[0][0] = tvir
-                PrevValue[0][1] = tviw
+                        if PrevValue[0][0] <> None and tvir <> None:
+                                vir = (tvir - PrevValue[0][0]) / UpdateInterval
+                        else:
+                                vir = None
+                        if PrevValue[0][1] <> None and tviw <> None:
+                                viw = (tviw - PrevValue[0][1]) / UpdateInterval
+                        else:
+                                viw = None
+                        PrevValue[0][0] = tvir
+                        PrevValue[0][1] = tviw
 
                 else:
                         (vir,viw) = ReadCounters()
@@ -415,14 +420,7 @@ def GetMet(Machine, ShowValue):
                                 if host_eth.find(t.wszName):
                                         vnr = vnr + t.dwInOctets
                                         vnt = vnt + t.dwOutOctets
-        def ValueToStr(Val):
-                if Val == None:
-                        Val = 'U'
-                else:
-                        Val = str(Val)
-                return Val
                 
-    #print Machine,'rx,tx:',vnr,vnt
 
         s = rrdtool + " update %s N:%s:%s:%s:%s:%s:%s:%s:%s:%s"%(rrdname,ValueToStr(vk),ValueToStr(vu),ValueToStr(vi),ValueToStr(vram),ValueToStr(vramfree),ValueToStr(vir),ValueToStr(viw),ValueToStr(vnr),ValueToStr(vnt))
         os.system(s)
@@ -435,8 +433,8 @@ def Graph(filename, Machines,times,metric,ShowValue, BeginN):
         s = rrdtool +' graph --start '+ str(int(time.time()) - times) +' --height ' + str(PicHeight) + ' --width ' + str(PicWidth) + ' -t "' + metric + '" '+ filename
         n = BeginN + 1
         for m in Machines[BeginN:] :
-        if not HostGraph and m == 'host' :
-            continue
+                if not HostGraph and m == 'host' :
+                    continue
                 cn = metric + str(n)
                 s = s + " DEF:" + metric + str(n) + "=" + rrdpath.replace(':','\:') + m.replace(' ','_') + '.rrd' + ':' + metric + ':AVERAGE LINE1:' + cn + colors[n-1] + ':"' + m + '"'
                 s = s + " GPRINT:"+ cn +":LAST:'Last%8.2lf%s' "
@@ -525,7 +523,23 @@ try:
                         HostGraph = False
                         i = i + 1
                         continue                
-        print 'Bad argument:',argv[i]
+                if argv[i] == '-r':
+                        rrdpath = argv[i+1]
+                        i = i + 2
+                        continue
+                if argv[i] == '-b':
+                        host_disk = argv[i+1]
+                        i = i + 2
+                        continue
+                if argv[i] == '-e':
+                        exmach = argv[i+1]
+                        i = i + 2
+                        continue
+                if argv[i] == '-n':
+                        host_eth = argv[i+1]
+                        i = i + 2
+                        continue
+                print 'Bad argument:',argv[i]
                 Usage(2)
         
 except Exception as err:
