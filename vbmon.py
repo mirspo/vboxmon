@@ -516,7 +516,7 @@ try:
                         i = i + 2
                         continue
                 if argv[i] == '-d':
-                        Path = argv[i+1]
+                        rrdpath = argv[i+1]
                         i = i + 2
                         continue
                 if argv[i] == '-m':
@@ -524,7 +524,7 @@ try:
                         i = i + 1
                         continue                
                 if argv[i] == '-r':
-                        rrdpath = argv[i+1]
+                        rrdtool = argv[i+1]
                         i = i + 2
                         continue
                 if argv[i] == '-b':
@@ -549,8 +549,6 @@ except Exception as err:
 if Debug:
         DisplayParam()
 
-PREV_IR = None
-PREV_IW = None
 
 if win :
         virtualBox = win32com.client.Dispatch("VirtualBox.VirtualBox")
