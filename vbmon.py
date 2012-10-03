@@ -14,7 +14,7 @@ vbmon.py -h -v -i <sec> -d <path> -s <sec>
     -y  heigth picture, default 300
     -g  make picture, default false
     -c  only make picture
-    -r  rrdtool path, default vbmon.py directory 
+    -r  rrdtool path, default vbmon.py directory
     -b  hard disk, coma separate, default 'sda,sdb,sr0' (for windows only all)
     -n  net device,coma separate, default 'eth0' (for windows unknow)
     -m  not make host graph, default False
@@ -252,7 +252,7 @@ def ReadCounters():
 
 def GetVal(met_obj, Metric, Mult):
         if win :
-                (values, names, objects, names_out, objects_out, units, scales, sequence_numbers,indices, lengths) = perf.QueryMetricsData([Metric], [met_obj])
+                (values, names, objects, units, scales, sequence_numbers,indices, lengths) = perf.QueryMetricsData([Metric], [met_obj])
                 try:
                         val = float(values[0]) / scales[0]
                 except:  
@@ -363,7 +363,7 @@ def GetMet(Machine, ShowValue):
                 vnr_virtio = GetValEx(Machine,'/Devices/*/Bytes/Receive')
                 if vnr == None:
                         vnr = vnr_virtio
-                else: 
+                else:
                         if vnr_virtio <> None:
                                 vnr = vnr + vnr_virtio
                     
@@ -371,7 +371,7 @@ def GetMet(Machine, ShowValue):
                 vnt_virtio = GetValEx(Machine,'/Devices/*/Bytes/Transmit')
                 if vnt == None:
                         vnt = vnt_virtio
-                else: 
+                else:
                         if vnt_virtio <> None:
                                 vnt = vnt + vnt_virtio
         else :
@@ -430,15 +430,25 @@ def GetMet(Machine, ShowValue):
 
 
 def Graph(filename, Machines,times,metric,ShowValue, BeginN):
+        maxlen = 0
+        for m in Machines :
+            maxlen = max(maxlen,len(m))
+        fmt = '{:*<' + str(maxlen) + '}'
+        i = 0
+        for m in Machines :
+            Machines[i] = fmt.format(m)
+            i +=1        
         s = rrdtool +' graph --start '+ str(int(time.time()) - times) +' --height ' + str(PicHeight) + ' --width ' + str(PicWidth) + ' -t "' + metric + '" '+ filename
         n = BeginN + 1
         for m in Machines[BeginN:] :
+                m1 = m.replace(' ','_').replace('*','')
+                m = m.replace('*',' ')
                 if not HostGraph and m == 'host' :
                     continue
                 cn = metric + str(n)
-                s = s + " DEF:" + metric + str(n) + "=" + rrdpath.replace(':','\:') + m.replace(' ','_') + '.rrd' + ':' + metric + ':AVERAGE LINE1:' + cn + colors[n-1] + ':"' + m + '"'
+                s = s + " DEF:" + metric + str(n) + "=" + rrdpath.replace(':','\:') + m1 + '.rrd' + ':' + metric + ':AVERAGE LINE1:' + cn + colors[n-1] + ':"' + m + '"'
                 s = s + " GPRINT:"+ cn +":LAST:'Last%8.2lf%s' "
-                s = s + " GPRINT:"+ cn +":AVERAGE:'AVG%8.2lf%s' GPRINT:"+cn+":MAX:'Max%8.2lf%s' GPRINT:"+cn+":MIN:'MIN%8.2lf%s' "
+                s = s + " GPRINT:"+ cn +":AVERAGE:'AVG%8.2lf%s' GPRINT:"+cn+":MAX:'Max%8.2lf%s' GPRINT:"+cn+":MIN:'MIN%8.2lf%s'\j "
                 n = n + 1
         if not win:
                 s = s + " > /dev/null"
