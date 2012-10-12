@@ -6,7 +6,7 @@ vbmon.py -h -v -i <sec> -d <path> -s <sec>
     -p  display setting parameters only    
     -h  print help
     -v  display debug message
-    -i  interval take mesure in seconds, default 10
+    -i  interval take mesure in seconds (1-600), default 10
     -d  path to save rrd and image files
     -s  timeline length graphics in minutes, default 30
     -e  exclude VMs, coma separator, default all
@@ -75,7 +75,7 @@ def DisplayParam():
         print ' -v Debug mode',Debug
         print ' -d datapath',rrdpath
         print ' -r rrdpath',rrdtool
-        print ' -i update interval',UpdateInterval
+        print ' -i update interval(1-600)',UpdateInterval
         print ' -s time length',GraphTime
         print ' -x picture width:',PicWidth
         print ' -y picture height:',PicHeight
@@ -316,15 +316,15 @@ def GetMet(Machine, ShowValue):
 
         if not os.access(rrdname,os.F_OK):
                 s = rrdtool + " create " + rrdname + " --step 1" \
-                " DS:Kernel:GAUGE:20:0:1000" \
-                " DS:User:GAUGE:20:0:10000" \
-                " DS:Idle:GAUGE:20:0:1000" \
-                " DS:MEMUsed:GAUGE:20:0:U" \
-                " DS:MEMFree:GAUGE:20:0:U" \
-                " DS:ReadBytes:GAUGE:20:0:U" \
-                " DS:WrittenBytes:GAUGE:20:0:U" \
-                " DS:ReceiveBytes:COUNTER:20:0:U" \
-                " DS:TransmitBytes:COUNTER:20:0:U" \
+                " DS:Kernel:GAUGE:600:0:1000" \
+                " DS:User:GAUGE:600:0:10000" \
+                " DS:Idle:GAUGE:600:0:1000" \
+                " DS:MEMUsed:GAUGE:600:0:U" \
+                " DS:MEMFree:GAUGE:600:0:U" \
+                " DS:ReadBytes:GAUGE:600:0:U" \
+                " DS:WrittenBytes:GAUGE:600:0:U" \
+                " DS:ReceiveBytes:COUNTER:600:0:U" \
+                " DS:TransmitBytes:COUNTER:600:0:U" \
                 " RRA:AVERAGE:0.5:1:1440 " \
                 " RRA:AVERAGE:0.5:5:2016 " \
                 " RRA:AVERAGE:0.5:60:720 " \
@@ -517,7 +517,7 @@ try:
                         Debug = True
                         i = i + 1
                         continue
-                if argv[i] == '-i':
+                if argv[i] == '-i' and int(argv[i+1]) > 0 and int(argv[i+1]) <=600:
                         UpdateInterval = int(argv[i+1])
                         i = i + 2
                         continue
